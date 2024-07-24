@@ -33,10 +33,10 @@ export default defineComponent({
       publicKey.value = wallet.address;
       privateKey.value = wallet.privateKey;
       sessionStorage.setItem('publicKey', publicKey.value);
-      sessionStorage.setItem('privateKey', privateKey.value);
       fetchBalances();
       emit('addressChanged', publicKey.value);
       emit('walletLoaded');
+      console.log('PRIVATE KEY:', privateKey.value); // Private key will be logged ONCE and will not be saved.
     };
 
     // Fetch generated wallet balance using Infura
@@ -59,10 +59,8 @@ export default defineComponent({
     // Get previously generated wallet on refresh
     const loadWalletFromStorage = () => {
       const storedPublicKey = sessionStorage.getItem('publicKey');
-      const storedPrivateKey = sessionStorage.getItem('privateKey');
-      if (storedPublicKey && storedPrivateKey) {
+      if (storedPublicKey) {
         publicKey.value = storedPublicKey;
-        privateKey.value = storedPrivateKey;
         fetchBalances();
         emit('addressChanged', publicKey.value);
         emit('walletLoaded');

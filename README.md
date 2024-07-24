@@ -1,4 +1,4 @@
-# Blockchain Test Landing Page
+# Blockchain Transaction Testing Page
 
 This project is a simple Vue.js application designed as a landing page for testing blockchain transactions and wallet interactions. It supports generating Ethereum wallets, connecting with MetaMask, and sending transactions using WalletConnect.
 

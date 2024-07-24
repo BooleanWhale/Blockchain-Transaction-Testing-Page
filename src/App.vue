@@ -9,7 +9,7 @@
     <div class="container px-5">
       <div class="columns is-desktop">
         <div class="column">
-          <img alt="Vue logo" class="logo mx-auto wallet-logo" :class="logoClass(walletGenerated)" src="./assets/logo.png">
+          <img alt="Vue logo" class="logo mx-auto wallet-logo" :class="logoClass(walletGenerated)" src="./assets/eth-logo.png">
           <EthereumWallet ref="ethereumWallet" @addressChanged="updateRecipientAddress" @walletLoaded="walletGenerated = true" />
         </div>
         <div class="column">
@@ -50,7 +50,7 @@ export default defineComponent({
     const walletGenerated = ref(false)
     const metamaskConnected = ref(false)
     const ethereumWallet = ref<InstanceType<typeof EthereumWallet> | null>(null)
-    const isDark = ref(true) // Default to dark mode
+    const isDark = ref(true)
 
     const applyTheme = () => {
       document.body.dataset.theme = isDark.value ? 'dark' : 'light'
@@ -76,13 +76,10 @@ export default defineComponent({
     }
 
     onMounted(() => {
-      // Check if MetaMask is already connected on page load
       if (window.ethereum && window.ethereum.isConnected()) {
         metamaskConnected.value = true
       }
-      // Initial update of recipient address
       updateRecipientAddress()
-
       applyTheme()
     })
 
@@ -116,8 +113,9 @@ body {
 }
 .logo {
   display: block;
-  height: 200px;
-  width: auto;
+  height: 270px;
+  width: 220px;
+  object-fit: contain;
 }
 .logo-fade {
   filter: grayscale(1);

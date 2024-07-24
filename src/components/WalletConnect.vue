@@ -1,18 +1,21 @@
 <template>
   <div class="mt-5 mb-6">
     <w3m-button class="mt-5"/>
-    <input class="input is-primary mt-5" v-model="amount" type="number" min="0" step="0.001">
-    <button class="button is-primary mt-5" @click="handleSendClick" :disabled="!isConnected">
-      Send {{ amount }} tXR to Generated Wallet
-    </button>
+    <div v-for="currency in config.currencies" :key="currency.symbol">
+      <input class="input is-primary mt-5" v-model="amounts[currency.symbol]" type="number" min="0" step="0.001">
+      <button class="button is-primary mt-5" @click="() => handleSendClick(currency)" :disabled="!isConnected">
+        Send {{ amounts[currency.symbol] }} {{ currency.symbol }} to Generated Wallet
+      </button>
+    </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, watch } from 'vue'
+import { defineComponent, onMounted, watch, reactive } from 'vue'
 import { createWeb3Modal, defaultConfig } from '@web3modal/ethers/vue'
-import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/vue'
+import { useWeb3Modal, useWeb3ModalAccount } from '@web3modal/ethers/vue'
 import { ethers } from 'ethers'
+import { config, CurrencyConfig } from '../config'
 
 export default defineComponent({
   props: {
@@ -23,15 +26,7 @@ export default defineComponent({
   },
   emits: ['walletConnected', 'walletDisconnected'],
   setup(props, { emit }) {
-    const projectId = 'f9069c33af4d95ec6408040046120239'
-
-    const xrSepolia = {
-      chainId: 1440002,
-      name: 'XR Sepolia',
-      currency: 'tXR',
-      explorerUrl: 'https://explorer.xrpl.org',
-      rpcUrl: 'https://xr-sepolia-testnet.rpc.caldera.xyz/http'
-    }
+    const projectId = config.projectId
 
     const metadata = { 
       name: 'My Website',
@@ -42,25 +37,31 @@ export default defineComponent({
 
     const ethersConfig = defaultConfig({
       metadata,
-      defaultChainId: 1440002,
+      defaultChainId: config.currencies[0].chainId,
     })
 
+    // Adds WalletConnect modals from currencies set in config.ts
     createWeb3Modal({
       ethersConfig,
-      chains: [xrSepolia],
+      chains: config.currencies.map(c => ({
+        chainId: c.chainId,
+        name: c.name,
+        currency: c.symbol,
+        explorerUrl: c.explorerUrl,
+        rpcUrl: c.rpcUrl
+      })),
       projectId,
-      themeMode: 'light'
+      themeMode: 'dark'
     })
 
     const { isConnected, address } = useWeb3ModalAccount()
-    const { walletProvider } = useWeb3ModalProvider()
     const web3modal = useWeb3Modal()
 
-    const amount = ref(0.001)
-    const recipientAddress = ref('')
+    const amounts = reactive(Object.fromEntries(
+      config.currencies.map(c => [c.symbol, 0.001])
+    ))
 
     onMounted(() => {
-      // Check if wallet is already connected on mount
       if (isConnected.value) {
         emit('walletConnected')
       }
@@ -74,87 +75,71 @@ export default defineComponent({
       }
     })
 
-    onMounted(async () => {
-      const wallet = ethers.Wallet.createRandom()
-      recipientAddress.value = await wallet.getAddress()
-    })
-
-    const handleSendClick = async () => {
+    const handleSendClick = async (currency: CurrencyConfig) => {
       if (!isConnected.value) {
         await web3modal.open()
       }
       if (isConnected.value) {
-        await sendToGeneratedWallet(props.recipientAddress)
+        await sendToGeneratedWallet(props.recipientAddress, currency)
       } else {
         console.error('Wallet not connected')
       }
     }
 
-    const xrSepoliaChainId = '0xaaa' // 2730 in decimal
-
-    const addXrSepoliaNetwork = async () => {
+    // Change blockchain network
+    const switchToNetwork = async (currency: CurrencyConfig) => {
       if (typeof window.ethereum === 'undefined') {
-        throw new Error('MetaMask is not installed!');
-      }
-      try {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: xrSepoliaChainId,
-            chainName: 'XR Sepolia',
-            nativeCurrency: {
-              name: 'Test XRP',
-              symbol: 'tXR',
-              decimals: 18
-            },
-            rpcUrls: ['https://xr-sepolia-testnet.rpc.caldera.xyz/http'],
-            blockExplorerUrls: ['https://explorer.xrpl.org']
-          }]
-        })
-        console.log('XR Sepolia network added to MetaMask')
-      } catch (error) {
-        console.error('Failed to add XR Sepolia network:', error)
-      }
-    }
-
-    const switchToXrSepolia = async () => {
-      if (typeof window.ethereum === 'undefined') {
-        throw new Error('MetaMask is not installed!');
+        throw new Error('Failed to detect window.ethereum')
       }
       try {
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: xrSepoliaChainId }],
+          params: [{ chainId: `0x${currency.chainId.toString(16)}` }],
         })
-        console.log('Switched to XR Sepolia network')
+        console.log(`Switched to ${currency.name} network`)
       } catch (switchError: any) {
-        // This error code indicates that the chain has not been added to MetaMask.
         if (switchError.code === 4902) {
-          await addXrSepoliaNetwork()
-          await switchToXrSepolia()
+          try {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: `0x${currency.chainId.toString(16)}`,
+                chainName: currency.name,
+                nativeCurrency: {
+                  name: currency.name,
+                  symbol: currency.symbol,
+                  decimals: 18
+                },
+                rpcUrls: [currency.rpcUrl],
+                blockExplorerUrls: [currency.explorerUrl]
+              }]
+            })
+            await switchToNetwork(currency)
+          } catch (addError) {
+            console.error(`Failed to add ${currency.name} network:`, addError)
+          }
         } else {
-          console.error('Failed to switch to XR Sepolia network:', switchError)
+          console.error(`Failed to switch to ${currency.name} network:`, switchError)
         }
       }
     }
 
-    const sendToGeneratedWallet = async (recipientAddress: string) => {
+    const sendToGeneratedWallet = async (recipientAddress: string, currency: CurrencyConfig) => {
       if (typeof window.ethereum === 'undefined') {
         throw new Error('MetaMask is not installed!')
       }
 
       try {
-        // Ensure we're on the XR Sepolia network
-        await switchToXrSepolia()
+        await switchToNetwork(currency)
 
-        const amountToSend = amount.value
-        const amountInWei = ethers.parseEther(amountToSend.toString()).toString(16) // Convert to hex
+        const amountToSend = amounts[currency.symbol]
+        const amountInWei = ethers.parseEther(amountToSend.toString()).toString(16)
 
         const transactionParameters = {
           to: recipientAddress,
-          from: address.value, // Use the connected address
-          value: '0x' + amountInWei, // Prefix with '0x'
-          chainId: xrSepoliaChainId
+          from: address.value,
+          value: '0x' + amountInWei,
+          chainId: `0x${currency.chainId.toString(16)}`
         }
 
         const txHash = await window.ethereum.request({
@@ -162,19 +147,23 @@ export default defineComponent({
           params: [transactionParameters],
         })
 
-        console.log('Transaction sent:', txHash)
-        // Note: MetaMask will handle the transaction confirmation
-      } catch (error) {
-        console.error('Error sending transaction:', error)
-        throw error
+        alert(`Transaction sent: ${txHash}`);
+      } catch (error: any) {
+        if (error.code === 4001) {
+          alert('Metamask closed without completing transaction')
+        } else {
+          console.error('Error sending transaction:', error)
+          alert('An error occurred while sending the transaction')
+        }
       }
     }
 
     return {
-      amount,
+      amounts,
       isConnected,
       handleSendClick,
-      sendToGeneratedWallet
+      sendToGeneratedWallet,
+      config
     }
   }
 })

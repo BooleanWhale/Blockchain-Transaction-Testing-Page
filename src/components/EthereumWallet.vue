@@ -1,8 +1,9 @@
 <template>
-  <div class="mt-5 mb-6">
+  <div class="mt-5">
     <div>Public Key: {{ publicKey }}</div>
-    <div v-if="ethBalance !== null">ETH Balance: {{ ethBalance }} ETH</div>
-    <div v-if="txrBalance !== null">tXR Balance: {{ txrBalance }} tXR</div>
+    <div v-for="balance in balances" :key="balance.symbol">
+      {{ balance.name }} Balance: {{ balance.amount }} {{ balance.symbol }}
+    </div>
     <button class="button is-primary is-dark mt-5" @click="generateWallet">Generate Wallet</button>
   </div>
 </template>
@@ -10,19 +11,23 @@
 <script lang="ts">
 import { defineComponent, ref, watch, onMounted } from 'vue';
 import { ethers } from 'ethers';
+import { config, CurrencyConfig } from '../config';
+
+interface BalanceInfo {
+  name: string;
+  symbol: string;
+  amount: string;
+}
 
 export default defineComponent({
   name: 'EthereumWallet',
   emits: ['addressChanged', 'walletLoaded'],
   setup(props, { emit }) {
-    const infuraKey = 'de0d3ed0cbe145ba960c1abd5d3a7411';
     const publicKey = ref<string | null>(null);
     const privateKey = ref<string | null>(null);
-    const ethBalance = ref<string | null>(null);
-    const txrBalance = ref<string | null>(null);
-    const ethProvider = new ethers.JsonRpcProvider(`https://mainnet.infura.io/v3/${infuraKey}`);
-    const xrSepoliaProvider = new ethers.JsonRpcProvider('https://xr-sepolia-testnet.rpc.caldera.xyz/http');
+    const balances = ref<BalanceInfo[]>([]);
 
+    // Generate new wallet using Ethers
     const generateWallet = () => {
       const wallet = ethers.Wallet.createRandom();
       publicKey.value = wallet.address;
@@ -34,16 +39,24 @@ export default defineComponent({
       emit('walletLoaded');
     };
 
+    // Fetch generated wallet balance using Infura
     const fetchBalances = async () => {
       if (publicKey.value) {
-        const ethBal = await ethProvider.getBalance(publicKey.value);
-        ethBalance.value = ethers.formatEther(ethBal);
-
-        const txrBal = await xrSepoliaProvider.getBalance(publicKey.value);
-        txrBalance.value = ethers.formatEther(txrBal);
+        balances.value = await Promise.all(
+          config.currencies.map(async (currency: CurrencyConfig) => {
+            // eslint-disable-next-line
+            const balance = await currency.provider.getBalance(publicKey.value!);
+            return {
+              name: currency.name,
+              symbol: currency.symbol,
+              amount: ethers.formatEther(balance)
+            };
+          })
+        );
       }
     };
 
+    // Get previously generated wallet on refresh
     const loadWalletFromStorage = () => {
       const storedPublicKey = sessionStorage.getItem('publicKey');
       const storedPrivateKey = sessionStorage.getItem('privateKey');
@@ -53,7 +66,6 @@ export default defineComponent({
         fetchBalances();
         emit('addressChanged', publicKey.value);
         emit('walletLoaded');
-        console.log(publicKey.value, privateKey.value);
       }
     };
 
@@ -61,13 +73,12 @@ export default defineComponent({
 
     onMounted(() => {
       loadWalletFromStorage();
-      setInterval(fetchBalances, 10000000);
+      setInterval(fetchBalances, config.fetchBalancesInterval);
     });
 
     return {
       publicKey,
-      ethBalance,
-      txrBalance,
+      balances,
       generateWallet,
     };
   },

@@ -2,6 +2,8 @@
 
 This project is a simple Vue.js application designed as a landing page for testing blockchain transactions and wallet interactions. It supports generating Ethereum wallets, connecting with MetaMask, and sending transactions using WalletConnect.
 
+<img width="1322" alt="Blockchain-Transaction-Testing-Page" src="https://github.com/user-attachments/assets/f1d92a1a-fca9-464f-a763-30eb8a08f163">
+
 ## Features
 
 - Live Timestamp: Displays the current date and time.

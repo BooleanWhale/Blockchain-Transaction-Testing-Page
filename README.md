@@ -6,7 +6,7 @@ This project is a simple Vue.js application designed as a landing page for testi
 
 ## Features
 
-- Live Timestamp: Displays the current date and time.
+- Live Timestamp: Displays the current time.
 - Dark Mode Toggle: Users can switch between light and dark themes.
 - Ethereum Wallet Generation: Generates a new Ethereum wallet and displays the public key.
 - MetaMask Connection: Connects to MetaMask for wallet interactions.

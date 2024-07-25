@@ -93,3 +93,4 @@ Modify the config.ts file to adjust settings such as the Infura key, currencies,
 
 - MetaMask: Users need a MetaMask wallet extension installed in their browser.
 - Infura Account: The app uses an Infura project ID for connecting to the Ethereum network.
+- WalletConnect Account: New WalletConnect project must be created to connect to MetaMask.
